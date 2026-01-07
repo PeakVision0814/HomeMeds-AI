@@ -1,0 +1,21 @@
+# 忽略虚拟环境
+.venv/
+venv/
+
+# 忽略 Python 编译缓存
+__pycache__/
+*.py[cod]
+
+# 忽略本地数据库文件 (保护隐私数据)
+*.db
+*.sqlite3
+
+# 忽略环境变量配置 (保护 API Key)
+.env
+
+# 忽略 IDE 配置 (可选)
+.vscode/
+.idea/
+
+# 忽略 macOS 系统文件 (如果是 Mac)
+.DS_Store
