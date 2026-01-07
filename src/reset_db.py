@@ -1,32 +1,33 @@
 import sqlite3
 import os
 
-# --- 路径配置 ---
+# 1. 路径配置
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(CURRENT_DIR)
 DATA_DIR = os.path.join(PROJECT_ROOT, "data")
 DB_PATH = os.path.join(DATA_DIR, "medicines.db")
 
-def get_connection():
-    """获取数据库连接 (开启外键支持)"""
+def reset_db():
+    print(f"🔧 正在连接数据库: {DB_PATH}")
+    
+    # 连接数据库
     conn = sqlite3.connect(DB_PATH)
-    conn.execute("PRAGMA foreign_keys = ON;")
-    conn.row_factory = sqlite3.Row
-    return conn
-
-def init_db():
-    """标准初始化：创建双表结构 (v0.3)"""
-    if not os.path.exists(DATA_DIR):
-        os.makedirs(DATA_DIR)
-        print(f"📁 已创建数据目录: {DATA_DIR}")
-
-    conn = get_connection()
     cursor = conn.cursor()
 
     try:
-        # 表1: Catalog (公共库)
+        # 2. 暴力删除旧表 (Drop Tables)
+        print("💥 正在删除旧表结构...")
+        cursor.execute("DROP TABLE IF EXISTS inventory;")
+        cursor.execute("DROP TABLE IF EXISTS medicine_catalog;")
+        conn.commit()
+        print("✅ 旧表已清除。")
+
+        # 3. 重新创建新表 (Create Tables)
+        print("🏗️ 正在创建新表结构 (v0.3)...")
+        
+        # 表1: Catalog
         cursor.execute("""
-        CREATE TABLE IF NOT EXISTS medicine_catalog (
+        CREATE TABLE medicine_catalog (
             barcode TEXT PRIMARY KEY,
             name TEXT NOT NULL,
             brand TEXT,
@@ -40,13 +41,13 @@ def init_db():
         );
         """)
 
-        # 表2: Inventory (库存表)
+        # 表2: Inventory
         cursor.execute("""
-        CREATE TABLE IF NOT EXISTS inventory (
+        CREATE TABLE inventory (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             barcode TEXT NOT NULL,
             expiry_date DATE NOT NULL,
-            quantity_val REAL NOT NULL,
+            quantity_val REAL NOT NULL,      -- 这就是之前报错缺失的列
             location TEXT NOT NULL,
             owner TEXT,
             my_dosage TEXT,
@@ -55,13 +56,14 @@ def init_db():
             FOREIGN KEY (barcode) REFERENCES medicine_catalog(barcode)
         );
         """)
-
+        
         conn.commit()
-        print(f"✅ 数据库检查完成！双表结构已就绪。")
+        print("🎉 数据库重置成功！所有表结构已更新为最新版。")
+
     except Exception as e:
-        print(f"❌ 初始化失败: {e}")
+        print(f"❌ 重置失败: {e}")
     finally:
         conn.close()
 
 if __name__ == "__main__":
-    init_db()
+    reset_db()
