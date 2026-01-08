@@ -2,50 +2,63 @@
 
 import pandas as pd
 from datetime import date, datetime, timedelta
-from src.database import get_connection
 import sqlite3
+from src.database import get_connection
 
 # ==========================================
 # A. 公共目录服务 (Catalog Services)
 # ==========================================
 
 def get_catalog_info(barcode):
-    """
-    根据条形码查询公共药品库
-    用于前端：输入条形码后，自动回填药名、用法等信息
-    """
+    """根据条形码查询公共药品库"""
     conn = get_connection()
     try:
-        # 使用 pandas 读取，方便转字典
         df = pd.read_sql_query("SELECT * FROM medicine_catalog WHERE barcode = ?", conn, params=(barcode,))
         if not df.empty:
-            return df.iloc[0].to_dict()
+            return df.iloc[0].fillna("").to_dict()
         return None
     finally:
         conn.close()
 
-def upsert_catalog_item(barcode, name, brand, spec, form, unit, effect, std_usage, tags):
+def upsert_catalog_item(barcode, name, manufacturer, spec, form, unit, 
+                       indications, std_usage, adverse_reactions, 
+                       contraindications, precautions, 
+                       pregnancy_lactation_use, child_use, elderly_use):
     """
-    插入或更新公共药品目录
-    (如果条形码已存在，则更新信息；如果不存在，则插入)
+    [核心功能] 插入或更新公共药品目录 (Pro版字段)
     """
     conn = get_connection()
     cursor = conn.cursor()
     try:
         sql = """
-        INSERT INTO medicine_catalog (barcode, name, brand, spec, form, unit, effect_text, std_usage, tags)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO medicine_catalog (
+            barcode, name, manufacturer, spec, form, unit, 
+            indications, std_usage, 
+            adverse_reactions, contraindications, precautions,
+            pregnancy_lactation_use, child_use, elderly_use
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(barcode) DO UPDATE SET
             name=excluded.name,
-            brand=excluded.brand,
+            manufacturer=excluded.manufacturer,
             spec=excluded.spec,
             form=excluded.form,
             unit=excluded.unit,
-            effect_text=excluded.effect_text,
+            indications=excluded.indications,
             std_usage=excluded.std_usage,
-            tags=excluded.tags;
+            adverse_reactions=excluded.adverse_reactions,
+            contraindications=excluded.contraindications,
+            precautions=excluded.precautions,
+            pregnancy_lactation_use=excluded.pregnancy_lactation_use,
+            child_use=excluded.child_use,
+            elderly_use=excluded.elderly_use;
         """
-        cursor.execute(sql, (barcode, name, brand, spec, form, unit, effect, std_usage, tags))
+        cursor.execute(sql, (
+            barcode, name, manufacturer, spec, form, unit, 
+            indications, std_usage, adverse_reactions, 
+            contraindications, precautions, 
+            pregnancy_lactation_use, child_use, elderly_use
+        ))
         conn.commit()
         return True
     except Exception as e:
@@ -54,18 +67,24 @@ def upsert_catalog_item(barcode, name, brand, spec, form, unit, effect, std_usag
     finally:
         conn.close()
 
+def load_catalog_data():
+    """读取公共药品目录的所有数据"""
+    conn = get_connection()
+    try:
+        df = pd.read_sql_query("SELECT * FROM medicine_catalog ORDER BY created_at DESC", conn)
+        return df
+    finally:
+        conn.close()
+
 # ==========================================
 # B. 家庭库存服务 (Inventory Services)
 # ==========================================
 
 def add_inventory_item(barcode, expiry_date, quantity_val, location, owner, my_dosage):
-    """
-    添加具体的库存记录 (关联到 Barcode)
-    """
+    """[核心功能] 添加具体的库存记录"""
     conn = get_connection()
     cursor = conn.cursor()
     try:
-        # 这里不需要存药名，只需要存 barcode 作为关联
         sql = """
         INSERT INTO inventory (barcode, expiry_date, quantity_val, location, owner, my_dosage)
         VALUES (?, ?, ?, ?, ?, ?)
@@ -82,61 +101,22 @@ def add_inventory_item(barcode, expiry_date, quantity_val, location, owner, my_d
     finally:
         conn.close()
 
-def quick_add_medicine(full_info_dict):
-    """
-    [复合功能] 一键入库：同时处理 Catalog 和 Inventory
-    前端表单提交时调用此函数
-    """
-    # 1. 先存/更新目录
-    upsert_catalog_item(
-        barcode=full_info_dict['barcode'],
-        name=full_info_dict['name'],
-        brand=full_info_dict.get('brand', ''),
-        spec=full_info_dict.get('spec', ''),
-        form=full_info_dict.get('form', ''),
-        unit=full_info_dict.get('unit', ''),
-        effect=full_info_dict.get('effect_text', ''),
-        std_usage=full_info_dict.get('std_usage', ''),
-        tags=full_info_dict.get('tags', '')
-    )
-    
-    # 2. 再存库存
-    return add_inventory_item(
-        barcode=full_info_dict['barcode'],
-        expiry_date=full_info_dict['expiry_date'],
-        quantity_val=full_info_dict['quantity_val'],
-        location=full_info_dict['location'],
-        owner=full_info_dict.get('owner', '家庭公用'),
-        my_dosage=full_info_dict.get('my_dosage', '')
-    )
-
 # ==========================================
 # C. 查询与展示 (Read & View)
 # ==========================================
 
 def load_data():
-    """
-    读取所有库存数据 (执行 JOIN 操作)
-    将 inventory 表和 medicine_catalog 表合并，让前端看起来像一张大表
-    """
+    """读取所有库存数据 (联表查询 Inventory + Catalog)"""
     conn = get_connection()
     try:
-        # 核心 SQL：联表查询
+        # 注意：这里我们只取几个关键字段展示，防止 DataFrame 太大
+        # 但如果要在看板显示更多信息，可以在这里加
         sql = """
         SELECT 
-            i.id, 
-            i.barcode,
-            c.name, 
-            c.brand, 
-            c.spec,
-            c.form,
-            c.unit,
-            i.quantity_val, 
-            i.expiry_date, 
-            i.location, 
-            i.owner,
-            c.tags,
-            c.effect_text,
+            i.id, i.barcode,
+            c.name, c.manufacturer, c.spec, c.form, c.unit,
+            i.quantity_val, i.expiry_date, i.location, i.owner,
+            c.indications, c.child_use, c.contraindications,
             i.my_dosage
         FROM inventory i
         LEFT JOIN medicine_catalog c ON i.barcode = c.barcode
@@ -144,58 +124,55 @@ def load_data():
         """
         df = pd.read_sql_query(sql, conn)
         
-        # 为了前端展示好看，我们在这里把 数量+单位 拼成一个字符串
-        # 例如: 12 + 粒 -> "12.0 粒"
         if not df.empty:
             df['quantity_display'] = df['quantity_val'].astype(str) + " " + df['unit'].fillna('')
+            df['expiry_date'] = pd.to_datetime(df['expiry_date'])
             
         return df
     finally:
         conn.close()
 
 def get_dashboard_metrics():
-    """
-    计算看板指标 (逻辑保持不变，只需调用新的 load_data)
-    """
+    """计算看板指标"""
     df = load_data()
     if df.empty:
         return 0, 0, 0
     
-    df['expiry_date'] = pd.to_datetime(df['expiry_date']).dt.date
+    dates = pd.to_datetime(df['expiry_date']).dt.date
     today = date.today()
-    
     total = len(df)
-    expired = len(df[df['expiry_date'] < today])
+    expired = len(dates[dates < today])
     warning_date = today + timedelta(days=90)
-    soon = len(df[(df['expiry_date'] >= today) & (df['expiry_date'] <= warning_date)])
-    
+    soon = len(dates[(dates >= today) & (dates <= warning_date)])
     return total, expired, soon
 
 # ==========================================
-# D. 更新与删除 (Update & Delete)
+# D. 更新与删除
 # ==========================================
 
 def update_quantity(med_id, new_quantity_val):
-    """
-    更新库存数量 (只更新 inventory 表的 quantity_val)
-    """
     conn = get_connection()
     cursor = conn.cursor()
     try:
         cursor.execute("UPDATE inventory SET quantity_val = ? WHERE id = ?", (new_quantity_val, med_id))
         conn.commit()
+        return True
+    except Exception as e:
+        print(f"❌ 更新数量失败: {e}")
+        return False
     finally:
         conn.close()
 
 def delete_medicine(med_id):
-    """
-    删除单条库存 (不删除 Catalog 里的信息，方便下次再买)
-    """
     conn = get_connection()
     cursor = conn.cursor()
     try:
         cursor.execute("DELETE FROM inventory WHERE id = ?", (med_id,))
         conn.commit()
+        return True
+    except Exception as e:
+        print(f"❌ 删除失败: {e}")
+        return False
     finally:
         conn.close()
 
@@ -205,47 +182,37 @@ def delete_medicine(med_id):
 
 def get_inventory_str_for_ai():
     """
-    生成 AI 提示词所需的库存清单
-    [升级版] 增加了：所属人、剂型、单位、医嘱
-    """
-    df = load_data()
-    if df.empty:
-        return "库存为空。"
-    
-    # 预处理
-    df['expiry_date'] = pd.to_datetime(df['expiry_date']).dt.date
-    today = date.today()
-    valid_df = df[df['expiry_date'] >= today]
-    
-    if valid_df.empty:
-        return "库存为空（所有药物均已过期）。"
-
-    inventory_list = []
-    for _, row in valid_df.iterrows():
-        # 构建更详细的描述字符串
-        item = (
-            f"- ID: {row['id']} | "
-            f"药名: {row['name']} ({row['brand'] or '无品牌'}) | "
-            f"剩余: {row['quantity_val']}{row['unit']} | "
-            f"位置: {row['location']} | "
-            f"归属人: {row['owner'] or '公用'} | "
-            f"功效: {row['effect_text'][:50]}... | " # 截断一下防止太长
-            f"备注医嘱: {row['my_dosage'] or '无'}"
-        )
-        inventory_list.append(item)
-    
-    return "\n".join(inventory_list)
-
-# --- 在 src/services.py 中新增以下函数 ---
-
-def load_catalog_data():
-    """
-    读取公共药品目录的所有数据
+    [Pro版] 生成 AI 提示词所需的库存清单文本
+    现在的 AI 可以看到禁忌和儿童用药信息了！
     """
     conn = get_connection()
     try:
-        # 简单粗暴，查全表
-        df = pd.read_sql_query("SELECT * FROM medicine_catalog ORDER BY name", conn)
-        return df
+        # 这里我们需要查全量的字段给 AI
+        sql = """
+        SELECT 
+            i.id, c.name, c.manufacturer, i.quantity_val, c.unit, i.location, i.owner, i.expiry_date,
+            c.indications, c.contraindications, c.child_use, c.pregnancy_lactation_use, i.my_dosage
+        FROM inventory i
+        LEFT JOIN medicine_catalog c ON i.barcode = c.barcode
+        WHERE i.expiry_date >= DATE('now')
+        """
+        df = pd.read_sql_query(sql, conn)
+        
+        if df.empty:
+            return "库存为空（或者所有药物均已过期）。"
+
+        inventory_list = []
+        for _, row in df.iterrows():
+            item = (
+                f"- ID:{row['id']} | {row['name']} ({row['manufacturer']}) | "
+                f"剩:{row['quantity_val']}{row['unit']} | {row['location']} | 属:{row['owner']} | "
+                f"适应症:{str(row['indications'])[:50]}... | "
+                f"禁忌:{str(row['contraindications'])[:30]} | "
+                f"儿童用药:{str(row['child_use'])[:30]} | "
+                f"医嘱:{row['my_dosage']}"
+            )
+            inventory_list.append(item)
+        
+        return "\n".join(inventory_list)
     finally:
         conn.close()
