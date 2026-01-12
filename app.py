@@ -9,6 +9,7 @@ from src.services import (
     get_dashboard_metrics, 
     update_quantity, 
     delete_medicine,
+    decrease_quantity,
     get_inventory_str_for_ai,
     get_catalog_info,
     load_catalog_data,
@@ -110,29 +111,99 @@ def show_operations():
     st.header("💊 药品管理")
     tab1, tab2, tab3 = st.tabs(["🥣 吃药/更新", "➕ 新药入库", "🗑️ 删库"])
     
-    # --- Tab 1: 更新库存 (保持不变) ---
+# --- Tab 1: 吃药与盘点 (逻辑重构版) ---
     with tab1:
+        st.subheader("💊 用药打卡与库存管理")
+        
         df = load_data()
-        if not df.empty:
-            opts = {f"{r['id']} - {r['name']} ({r['location']})": r['id'] for _, r in df.iterrows()}
-            if opts:
-                sel_id = opts[st.selectbox("选择药品", list(opts.keys()))]
-                curr = df[df['id'] == sel_id].iloc[0]
-                
-                c1, c2 = st.columns(2)
-                new_val = c1.number_input("新数量", value=float(curr['quantity_val']), step=1.0)
-                if c2.button("💾 更新库存"):
-                    if new_val <= 0:
-                        delete_medicine(sel_id)
-                        st.success("已用完移除")
-                    else:
-                        update_quantity(sel_id, new_val)
-                        st.success("更新成功")
-                    st.rerun()
-            else:
-                 st.info("暂无数据")
+        if df.empty:
+            st.info("📭 暂无库存，请先去【新药入库】添加药品。")
         else:
-            st.info("暂无库存数据")
+            # 1. 选择药品
+            # 优化显示：名称 + (剩余数量) + 位置
+            opts = {f"{r['name']} | 剩: {r['quantity_display']} | {r['location']}": r['id'] for _, r in df.iterrows()}
+            
+            # 使用 selectbox 搜索选择
+            sel_label = st.selectbox("👉 请选择要操作的药品", list(opts.keys()))
+            sel_id = opts[sel_label]
+            
+            # 获取当前详情
+            curr = df[df['id'] == sel_id].iloc[0]
+            
+            st.divider()
+            
+            # 2. 分栏操作：左边吃药，右边盘点
+            col_consume, col_correct = st.columns(2)
+            
+            # === 左栏：吃药打卡 (相对减少) ===
+            with col_consume:
+                st.markdown("#### 🥣 吃药打卡")
+                st.caption("记录单次用量，自动扣减")
+                
+                # 智能默认值：如果是颗粒/片，默认吃1个；如果是液体/药膏，默认0
+                default_step = 1.0
+                if curr['unit'] in ['ml', 'g', '瓶', '支']:
+                    st.info("💡 提示：液体/药膏类如难以估算单次用量，建议使用右侧【库存修正】直接修改剩余比例。")
+                
+                # 输入框
+                consume_val = st.number_input(
+                    f"本次用量 ({curr['unit']})", 
+                    min_value=0.1, 
+                    value=1.0, 
+                    step=0.5, 
+                    key="consume_input"
+                )
+                
+                if st.button("💊 确认服药", type="primary", use_container_width=True):
+                    success, res = decrease_quantity(sel_id, consume_val)
+                    if success:
+                        if res == 0:
+                            st.warning(f"💊 服药成功！当前库存已归零。如有需要请去【删库】清理。")
+                        else:
+                            st.success(f"💊 服药成功！库存 -{consume_val}，剩余: {res} {curr['unit']}")
+                        st.rerun()
+                    else:
+                        st.error(f"操作失败: {res}")
+
+            # === 右栏：库存修正 (绝对值覆盖) ===
+            with col_correct:
+                st.markdown("#### 📝 库存修正")
+                st.caption("盘点发现数目不对？直接改这里")
+                
+                correct_val = st.number_input(
+                    f"实际剩余总量 ({curr['unit']})", 
+                    min_value=0.0, 
+                    value=float(curr['quantity_val']), 
+                    step=1.0,
+                    key="correct_input"
+                )
+                
+                if st.button("💾 确认修正", type="secondary", use_container_width=True):
+                    if correct_val == 0:
+                         # 修正为0通常意味着想删除，给个提示
+                         st.warning("⚠️ 你将库存修正为了 0。如果想彻底删除记录，请去【删库】标签页。")
+                         update_quantity(sel_id, 0)
+                         st.rerun()
+                    else:
+                        update_quantity(sel_id, correct_val)
+                        st.success(f"✅ 库存已修正为: {correct_val} {curr['unit']}")
+                        st.rerun()
+
+            # === 底部：药膏/液体处理指南 ===
+            with st.expander("❓ 药膏、眼药水等无法计数怎么办？"):
+                st.markdown("""
+                **针对非离散计量药品（如药膏、糖浆、喷雾），建议采用以下两种方式之一：**
+                
+                1. **百分比法（推荐）**：
+                   - 入库时数量填 `1`（表示1瓶/1支）。
+                   - 每次使用后，观察剩余量。
+                   - 使用右侧 **【库存修正】**，将数量改为 `0.8` (剩8成)、`0.5` (剩一半) 等。
+                   
+                2. **糊涂账法**：
+                   - 入库时数量填 `1`。
+                   - 只要没用完，就一直保持 `1`。
+                   - 直到用空了，直接去【删库】界面删除。
+                """)
 
     # --- Tab 2: 入库 (交互升级版) ---
     with tab2:

@@ -173,6 +173,37 @@ def update_quantity(med_id, new_quantity_val):
     finally:
         conn.close()
 
+
+def decrease_quantity(med_id, decrease_amount):
+    """
+    [吃药打卡] 扣减库存
+    如果扣减后数量 <= 0，不会自动删除，而是设为 0，由用户决定是否清理
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        # 1. 先查当前数量
+        cursor.execute("SELECT quantity_val FROM inventory WHERE id = ?", (med_id,))
+        row = cursor.fetchone()
+        if not row:
+            return False, "找不到该药品记录"
+            
+        current_qty = row['quantity_val']
+        new_qty = current_qty - decrease_amount
+        
+        if new_qty < 0:
+            new_qty = 0
+            
+        # 2. 更新
+        cursor.execute("UPDATE inventory SET quantity_val = ? WHERE id = ?", (new_qty, med_id))
+        conn.commit()
+        return True, new_qty
+    except Exception as e:
+        print(f"❌ 扣减失败: {e}")
+        return False, str(e)
+    finally:
+        conn.close()
+
 def delete_medicine(med_id):
     conn = get_connection()
     cursor = conn.cursor()
