@@ -19,3 +19,5 @@ __pycache__/
 
 # 忽略 macOS 系统文件 (如果是 Mac)
 .DS_Store
+
+generate_tree.py
