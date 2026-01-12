@@ -62,7 +62,6 @@ def init_db():
             barcode TEXT NOT NULL,
             expiry_date DATE NOT NULL,
             quantity_val REAL NOT NULL,
-            location TEXT NOT NULL,
             owner TEXT,
             my_dosage TEXT,
             is_opened BOOLEAN DEFAULT 0,

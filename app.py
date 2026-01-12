@@ -93,7 +93,7 @@ def show_dashboard():
         st.dataframe(
             df.style.apply(style_rows, axis=1),
             use_container_width=True, hide_index=True,
-            column_order=["name", "quantity_display", "expiry_date", "location", "owner", "indications", "is_standard"],
+            column_order=["name", "quantity_display", "expiry_date", "owner", "indications", "is_standard"],
             column_config={
                 "name": st.column_config.TextColumn("药品 (厂商)", width="medium"),
                 "quantity_display": "剩余",
@@ -111,7 +111,7 @@ def show_operations():
     st.header("💊 药品管理")
     tab1, tab2, tab3 = st.tabs(["🥣 吃药/更新", "➕ 新药入库", "🗑️ 删库"])
     
-# --- Tab 1: 吃药与盘点 (逻辑重构版) ---
+    # --- Tab 1: 吃药与盘点 ---
     with tab1:
         st.subheader("💊 用药打卡与库存管理")
         
@@ -120,8 +120,7 @@ def show_operations():
             st.info("📭 暂无库存，请先去【新药入库】添加药品。")
         else:
             # 1. 选择药品
-            # 优化显示：名称 + (剩余数量) + 位置
-            opts = {f"{r['name']} | 剩: {r['quantity_display']} | {r['location']}": r['id'] for _, r in df.iterrows()}
+            opts = {f"{r['name']} | 剩: {r['quantity_display']}": r['id'] for _, r in df.iterrows()}
             
             # 使用 selectbox 搜索选择
             sel_label = st.selectbox("👉 请选择要操作的药品", list(opts.keys()))
@@ -329,8 +328,6 @@ def show_operations():
                         st.form_submit_button("🔒 官方认证数据 (只读)", disabled=True)
 
             # === 库存表单 ===
-            # 只要基础库里有数据 (Catalog Exists)，或者是刚刚保存完，就可以入库
-            # 注意：如果是新药，必须先点上面的保存，页面刷新后 catalog_exists 变 True，才能看到下面
             if catalog_exists:
                 st.markdown("#### 2️⃣ 入库 (Inventory)")
                 with st.form("inv_form", clear_on_submit=True):
@@ -338,14 +335,15 @@ def show_operations():
                     i1, i2 = st.columns(2)
                     qty = i1.number_input("数量", min_value=1.0, value=1.0)
                     exp = i2.date_input("过期日期")
-                    i3, i4, i5 = st.columns(3)
-                    loc = i3.selectbox("位置", ["电视柜", "餐边柜", "冰箱", "急救包", "主卧"])
-                    own = i4.selectbox("归属", ["公用", "爸爸", "妈妈", "宝宝", "老人"])
-                    note = i5.text_input("备注/医嘱")
+                    
+                    # 🗑️ 删除了 location 的 selectbox，重新布局
+                    i3, i4 = st.columns(2) 
+                    own = i3.selectbox("归属", ["公用", "爸爸", "妈妈", "宝宝", "老人"])
+                    note = i4.text_input("备注/医嘱")
                     
                     if st.form_submit_button("📥 确认入库"):
-                        # 使用 target_barcode 确保关联正确
-                        add_inventory_item(target_barcode, exp, qty, loc, own, note)
+                        # 调用时删除了 loc 参数
+                        add_inventory_item(target_barcode, exp, qty, own, note)
                         st.success("入库成功")
     # --- Tab 3: 删库 (保持不变) ---
     with tab3:

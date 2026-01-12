@@ -100,15 +100,15 @@ def load_catalog_data():
 # B. 家庭库存服务 (基本无变化)
 # ==========================================
 
-def add_inventory_item(barcode, expiry_date, quantity_val, location, owner, my_dosage):
+def add_inventory_item(barcode, expiry_date, quantity_val, owner, my_dosage):
     conn = get_connection()
     cursor = conn.cursor()
     try:
         sql = """
-        INSERT INTO inventory (barcode, expiry_date, quantity_val, location, owner, my_dosage)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO inventory (barcode, expiry_date, quantity_val, owner, my_dosage)
+        VALUES (?, ?, ?, ?, ?)
         """
-        cursor.execute(sql, (barcode, expiry_date, quantity_val, location, owner, my_dosage))
+        cursor.execute(sql, (barcode, expiry_date, quantity_val, owner, my_dosage))
         conn.commit()
         return True
     except sqlite3.IntegrityError:
@@ -131,7 +131,7 @@ def load_data():
         SELECT 
             i.id, i.barcode,
             c.name, c.manufacturer, c.spec, c.form, c.unit,
-            i.quantity_val, i.expiry_date, i.location, i.owner,
+            i.quantity_val, i.expiry_date, i.owner,
             c.indications, c.child_use, c.contraindications, c.is_standard,
             i.my_dosage
         FROM inventory i
@@ -226,7 +226,7 @@ def get_inventory_str_for_ai():
     try:
         sql = """
         SELECT 
-            i.id, c.name, c.manufacturer, i.quantity_val, c.unit, i.location, i.owner, i.expiry_date,
+            i.id, c.name, c.manufacturer, i.quantity_val, c.unit, i.owner, i.expiry_date,
             c.indications, c.contraindications, c.child_use, c.pregnancy_lactation_use, i.my_dosage, c.is_standard
         FROM inventory i
         LEFT JOIN medicine_catalog c ON i.barcode = c.barcode
@@ -237,11 +237,11 @@ def get_inventory_str_for_ai():
 
         inventory_list = []
         for _, row in df.iterrows():
-            # 增加一个标记告诉AI这是官方数据
             source_tag = "[官方数据]" if row['is_standard'] else "[用户录入]"
+            # 删除了位置信息
             item = (
                 f"- ID:{row['id']} {source_tag} | {row['name']} | "
-                f"剩:{row['quantity_val']}{row['unit']} | {row['location']} | "
+                f"剩:{row['quantity_val']}{row['unit']} | 属:{row['owner']} | "
                 f"禁忌:{str(row['contraindications'])[:30]} | "
                 f"儿童:{str(row['child_use'])[:30]} | "
                 f"医嘱:{row['my_dosage']}"
