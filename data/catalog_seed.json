@@ -15,6 +15,24 @@
     "child_use": "新生儿的用药安全尚未确定。",
     "elderly_use": "",
     "is_standard": 1,
-    "created_at": "2026-01-09 03:09:14"
+    "created_at": "2026-01-12 06:26:46"
+  },
+  {
+    "barcode": "6952764600016",
+    "name": "蒲地蓝消炎口服液",
+    "manufacturer": "济川药业集团有限公司",
+    "spec": "10ml",
+    "form": "口服液",
+    "unit": "支",
+    "indications": "清热解毒，消肿利咽。用于疖症、腮腺炎、咽炎、扁桃体炎。",
+    "std_usage": "口服。一次10ml，一日3次，小儿酌减。如有沉淀，摇匀后使用。",
+    "adverse_reactions": "恶心、呕吐、腹胀、腹泻、发力、头晕等；皮疹、瘙痒等过敏反应。",
+    "contraindications": "本产品对所含成分过敏者使用。",
+    "precautions": "1. 孕妇慎用；2 过敏体质者慎用；3. 症见腹痛、喜暖、腹泻等脾胃虚寒者慎用。",
+    "pregnancy_lactation_use": "",
+    "child_use": "",
+    "elderly_use": "",
+    "is_standard": 1,
+    "created_at": "2026-01-12 11:47:44"
   }
 ]

@@ -11,7 +11,7 @@ def show_sidebar():
         st.divider()
         
         # 维护者模式
-        st.markdown("### 👨‍💻 维护者模式")
+        st.markdown("### 👨‍💻 开发者模式")
         dev_mode = st.checkbox("我是维护者/作者")
         if dev_mode:
             st.success("🔓 开发者模式已激活")

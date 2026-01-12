@@ -28,8 +28,18 @@ def show_dashboard():
         today = pd.to_datetime("today").normalize()
         def style_rows(row):
             exp = pd.to_datetime(row['expiry_date'])
-            if exp < today: return ['background-color: #ffcccc'] * len(row)
-            if exp < today + pd.Timedelta(days=90): return ['background-color: #ffffe0'] * len(row)
+            
+            # 🔴 已过期
+            if exp < today: 
+                # 修复：增加 color: black，强制文字变黑，防止在暗色模式下由白字变成不可见
+                return ['background-color: #ffcccc; color: black'] * len(row)
+            
+            # 🟡 临期预警
+            if exp < today + pd.Timedelta(days=90): 
+                # 修复：增加 color: black
+                return ['background-color: #ffffe0; color: black'] * len(row)
+            
+            # ⚪ 正常状态 (使用默认样式，暗色模式下就是黑底白字)
             return [''] * len(row)
 
         st.dataframe(
