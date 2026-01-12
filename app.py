@@ -97,15 +97,11 @@ def show_dashboard():
                 "name": st.column_config.TextColumn("药品 (厂商)", width="medium"),
                 "quantity_display": "剩余",
                 "expiry_date": st.column_config.DateColumn("效期", format="YYYY-MM-DD"),
-                "is_standard": st.column_config.CheckboxColumn("官方认证", width="small"),
+                "is_standard": st.column_config.CheckboxColumn("官方数据", width="small"),
             }
         )
     else:
         st.info("暂无库存")
-
-# app.py
-
-# ... (保持前面的 import 和 sidebar 代码不变) ...
 
 # ==========================================
 # 页面 2: 药品操作 (修复版：补全所有字段)
@@ -138,29 +134,52 @@ def show_operations():
         else:
             st.info("暂无库存数据")
 
-    # --- Tab 2: 入库 (修复核心：补全字段) ---
+    # --- Tab 2: 入库 (交互升级版) ---
     with tab2:
         st.subheader("专业入库流程")
-        barcode = st.text_input("📸 1. 扫码或输码", placeholder="例如 69xxx", key="op_barcode")
         
+        # === 1. 搜索区域 (布局改动) ===
+        col_input, col_btn = st.columns([4, 1])
+        
+        with col_input:
+            # 这里不仅接收条码，也可以接收药名
+            user_input = st.text_input("🔍 扫码或输入药名", placeholder="支持条形码 / 药品通用名", key="op_search_input")
+        
+        with col_btn:
+            # 增加一个按钮，为了对齐输入框，加个空行或使用 vertical_alignment (Streamlit新版)
+            # 这里简单处理，直接放按钮
+            st.write("") 
+            st.write("") # 稍微甚至一点下移，对齐输入框
+            search_clicked = st.button("🔎 查询", type="primary", use_container_width=True)
+
+        # 逻辑初始化
         catalog_exists = False
         is_locked = False
-        # 初始化所有字段
         default_vals = {k: "" for k in ["name", "manuf", "spec", "form", "unit", "ind", "use", "adv", "contra", "prec", "preg", "child", "old"]}
         default_vals.update({"form": "胶囊", "unit": "粒"})
         
-        if barcode:
-            found = get_catalog_info(barcode)
+        # 核心变量：target_barcode
+        # 如果用户搜的是药名，查到了，target_barcode 就是查到的条码。
+        # 如果没查到（是新药），target_barcode 就是用户输入的内容（假设用户输入的是新条码）。
+        target_barcode = user_input 
+
+        # 触发查询的条件：输入框有值 AND (按了回车 OR 点了按钮)
+        if user_input:
+            found = get_catalog_info(user_input)
+            
             if found:
                 catalog_exists = True
+                # 【关键】修正条码：如果用户搜的是"布洛芬"，这里要把 target_barcode 修正为 "69xxxx"
+                target_barcode = found['barcode'] 
+                
                 # 权限判断
                 if found.get('is_standard') == 1 and not dev_mode:
                     is_locked = True
-                    st.toast(f"🔒 已调取官方数据: {found['name']} (只读)")
+                    st.toast(f"🔒 已调取官方数据: {found['name']}")
                 else:
                     st.toast(f"✅ 已调取数据: {found['name']}")
                 
-                # 回填数据 (注意 key 要对应)
+                # 回填数据
                 default_vals.update({
                     "name": found['name'], "manuf": found['manufacturer'], "spec": found['spec'],
                     "form": found['form'], "unit": found['unit'], "ind": found['indications'],
@@ -170,61 +189,66 @@ def show_operations():
                     "old": found['elderly_use']
                 })
             else:
-                st.info("🆕 新药，请录入信息")
+                # 没查到
+                if user_input.isdigit():
+                    st.info(f"🆕 这是一个新条码 ({user_input})，请录入信息。")
+                else:
+                    st.warning(f"⚠️ 未找到名为“{user_input}”的药品。如果是新药，请直接扫描或输入条形码进行录入。")
 
         st.divider()
         
-        if barcode:
+        # 只有确定了 target_barcode (且不为空) 才显示表单
+        if target_barcode:
             # === 基础信息表单 ===
             lock_msg = " (🔒 官方锁定)" if is_locked else ""
             with st.expander(f"1️⃣ 基础信息{lock_msg}", expanded=True):
+                # 提示用户当前正在操作哪个条码
+                st.caption(f"当前操作条码: **{target_barcode}**")
+                
                 with st.form("cat_form"):
                     if is_locked:
-                        st.info("ℹ️ 此为官方维护的标准数据，保障安全，无法修改。如需修改请在侧边栏开启维护者模式。")
+                        st.info("ℹ️ 官方标准数据，无法修改。")
                     
-                    # 第一行：基本信息
                     c1, c2, c3 = st.columns([1.5, 1, 1])
                     name = c1.text_input("通用名 *", value=default_vals['name'], disabled=is_locked)
                     manuf = c2.text_input("生产企业", value=default_vals['manuf'], disabled=is_locked)
                     spec = c3.text_input("规格", value=default_vals['spec'], disabled=is_locked)
                     
-                    # 第二行：剂型单位
                     c4, c5 = st.columns(2)
-                    form = c4.selectbox("剂型", ["胶囊", "片剂", "颗粒", "口服液", "外用", "喷雾", "其他"], index=0 if not default_vals['form'] else ["胶囊", "片剂", "颗粒", "口服液", "外用", "喷雾", "其他"].index(default_vals['form']) if default_vals['form'] in ["胶囊", "片剂", "颗粒", "口服液", "外用", "喷雾", "其他"] else 6, disabled=is_locked)
-                    unit = c5.selectbox("单位", ["粒", "片", "袋", "ml", "瓶", "盒", "支"], index=0 if not default_vals['unit'] else ["粒", "片", "袋", "ml", "瓶", "盒", "支"].index(default_vals['unit']) if default_vals['unit'] in ["粒", "片", "袋", "ml", "瓶", "盒", "支"] else 5, disabled=is_locked)
+                    # 下拉框索引保护
+                    f_list = ["胶囊", "片剂", "颗粒", "口服液", "外用", "喷雾", "其他"]
+                    u_list = ["粒", "片", "袋", "ml", "瓶", "盒", "支"]
+                    f_idx = f_list.index(default_vals['form']) if default_vals['form'] in f_list else 0
+                    u_idx = u_list.index(default_vals['unit']) if default_vals['unit'] in u_list else 0
+
+                    form = c4.selectbox("剂型", f_list, index=f_idx, disabled=is_locked)
+                    unit = c5.selectbox("单位", u_list, index=u_idx, disabled=is_locked)
                     
-                    # 第三行：核心功效
                     ind = st.text_area("适应症 *", value=default_vals['ind'], height=70, disabled=is_locked)
                     use = st.text_input("说明书用法", value=default_vals['use'], disabled=is_locked)
                     
                     st.markdown("---")
                     st.markdown("**🛡️ 安全用药信息**")
                     
-                    # 第四行：禁忌与不良反应 (并排展示)
                     s1, s2 = st.columns(2)
-                    contra = s1.text_area("🚫 禁忌", value=default_vals['contra'], height=70, disabled=is_locked, placeholder="如：对青霉素过敏者禁用")
+                    contra = s1.text_area("🚫 禁忌", value=default_vals['contra'], height=70, disabled=is_locked)
                     adv = s2.text_area("🤢 不良反应", value=default_vals['adv'], height=70, disabled=is_locked)
                     
-                    # 第五行：注意事项
                     prec = st.text_area("⚠️ 注意事项", value=default_vals['prec'], height=60, disabled=is_locked)
                     
-                    # 第六行：特殊人群 (三列并排)
-                    st.caption("👶👵 特殊人群用药")
                     p1, p2, p3 = st.columns(3)
                     preg = p1.text_input("🤰 孕妇/哺乳", value=default_vals['preg'], disabled=is_locked)
                     child = p2.text_input("👶 儿童用药", value=default_vals['child'], disabled=is_locked)
                     old = p3.text_input("👴 老年用药", value=default_vals['old'], disabled=is_locked)
 
-                    # 提交按钮逻辑
                     if not is_locked:
-                        btn_text = "💾 保存为官方标准数据" if dev_mode else "💾 保存"
+                        btn_text = "💾 保存为官方标准数据" if dev_mode else "💾 保存 (用户自定义)"
                         if st.form_submit_button(btn_text):
                             if not name: 
                                 st.error("通用名不能为空")
                             else:
-                                # 这里调用 upsert 必须传入所有新字段
                                 upsert_catalog_item(
-                                    barcode, name, manuf, spec, form, unit, 
+                                    target_barcode, name, manuf, spec, form, unit, 
                                     ind, use, adv, contra, prec, preg, child, old,
                                     is_standard=1 if dev_mode else 0
                                 )
@@ -233,10 +257,13 @@ def show_operations():
                     else:
                         st.form_submit_button("🔒 官方认证数据 (只读)", disabled=True)
 
-            # === 库存表单 (保持不变) ===
+            # === 库存表单 ===
+            # 只要基础库里有数据 (Catalog Exists)，或者是刚刚保存完，就可以入库
+            # 注意：如果是新药，必须先点上面的保存，页面刷新后 catalog_exists 变 True，才能看到下面
             if catalog_exists:
                 st.markdown("#### 2️⃣ 入库 (Inventory)")
                 with st.form("inv_form", clear_on_submit=True):
+                    st.info(f"即将入库: **{default_vals['name']}**")
                     i1, i2 = st.columns(2)
                     qty = i1.number_input("数量", min_value=1.0, value=1.0)
                     exp = i2.date_input("过期日期")
@@ -246,9 +273,9 @@ def show_operations():
                     note = i5.text_input("备注/医嘱")
                     
                     if st.form_submit_button("📥 确认入库"):
-                        add_inventory_item(barcode, exp, qty, loc, own, note)
+                        # 使用 target_barcode 确保关联正确
+                        add_inventory_item(target_barcode, exp, qty, loc, own, note)
                         st.success("入库成功")
-
     # --- Tab 3: 删库 (保持不变) ---
     with tab3:
         st.subheader("批量清理")

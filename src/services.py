@@ -9,11 +9,25 @@ from src.database import get_connection
 # A. 公共目录服务
 # ==========================================
 
-def get_catalog_info(barcode):
-    """查询公共药品库，返回包含 is_standard 的字典"""
+def get_catalog_info(query):
+    """
+    [升级版] 智能查询公共药品库
+    支持：精确条形码查询 OR 药名模糊查询
+    """
     conn = get_connection()
     try:
-        df = pd.read_sql_query("SELECT * FROM medicine_catalog WHERE barcode = ?", conn, params=(barcode,))
+        # 逻辑：
+        # 1. 尝试匹配条形码 (精确)
+        # 2. 或者尝试匹配通用名 (模糊，取第一个匹配的)
+        sql = """
+        SELECT * FROM medicine_catalog 
+        WHERE barcode = ? 
+           OR name LIKE ? 
+        LIMIT 1
+        """
+        # 注意：模糊查询加了 %
+        df = pd.read_sql_query(sql, conn, params=(query, f"%{query}%"))
+        
         if not df.empty:
             return df.iloc[0].fillna("").to_dict()
         return None
