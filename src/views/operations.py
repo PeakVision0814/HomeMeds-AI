@@ -23,7 +23,7 @@ def show_operations(dev_mode):
             c1, c2 = st.columns(2)
             with c1:
                 st.markdown("#### 🥣 吃药")
-                if curr['unit'] in ['ml', 'g', '瓶', '支']: st.info("💡 液体建议用右侧修正")
+                if curr['unit'] in ['ml', 'g']: st.info("💡 液体建议用右侧修正")
                 val = st.number_input(f"用量 ({curr['unit']})", 0.1, 1.0, 0.5)
                 if st.button("💊 确认服药", type="primary", use_container_width=True):
                     ok, res = decrease_quantity(sel_id, val)

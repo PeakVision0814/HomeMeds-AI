@@ -17,6 +17,6 @@ if menu == "🏠 药箱看板":
 elif menu == "💊 药品操作":
     show_operations(dev_mode)  # 传入开发者模式状态
 elif menu == "📖 公共药库":
-    show_catalog()
+    show_catalog(dev_mode)
 elif menu == "🤖 AI 药剂师":
     show_ai_doctor()

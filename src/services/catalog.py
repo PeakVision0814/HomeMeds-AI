@@ -48,6 +48,23 @@ def upsert_catalog_item(barcode, name, manufacturer, spec, form, unit,
     finally:
         conn.close()
 
+# 👇 新增删除函数
+def delete_catalog_item(barcode):
+    """删除公共药品库条目"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        # 注意：如果有库存引用了这个条码，SQLite 的外键约束可能会阻止删除
+        # 或者需要先删除库存。这里我们简单处理，直接尝试删除。
+        cursor.execute("DELETE FROM medicine_catalog WHERE barcode = ?", (barcode,))
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"❌ 删除失败: {e}")
+        return False
+    finally:
+        conn.close()
+
 def load_catalog_data():
     conn = get_connection()
     try:
