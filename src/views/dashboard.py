@@ -50,9 +50,12 @@ def show_dashboard():
             use_container_width=True, hide_index=True,
             column_order=["name", "quantity_display", "expiry_date", "owner", "indications", "is_standard"],
             column_config={
-                "name": "药品 (厂商)", "quantity_display": "剩余", 
-                "expiry_date": st.column_config.DateColumn("效期", format="YYYY-MM-DD"),
-                "is_standard": st.column_config.CheckboxColumn("官方", width="small")
+                "name": "药品 (厂商)",
+                "quantity_display": "剩余量",
+                "expiry_date": st.column_config.DateColumn("有效期", format="YYYY-MM-DD"),
+                "owner": "所有者",
+                "indications": "适应症",
+                "is_standard": st.column_config.CheckboxColumn("官方", width="small"),
             }
         )
     else:

@@ -1,4 +1,3 @@
-# src/views/operations.py
 import streamlit as st
 from src.services.queries import load_data
 from src.services.inventory import update_quantity, delete_medicine, decrease_quantity, add_inventory_item
@@ -24,7 +23,7 @@ def show_operations(dev_mode):
             c1, c2 = st.columns(2)
             with c1:
                 st.markdown("#### 🥣 吃药")
-                if curr['unit'] in ['ml', 'g']: st.info("💡 液体建议用右侧修正")
+                if curr['unit'] in ['ml', 'g', '瓶', '支']: st.info("💡 液体建议用右侧修正")
                 val = st.number_input(f"用量 ({curr['unit']})", 0.1, 1.0, 0.5)
                 if st.button("💊 确认服药", type="primary", use_container_width=True):
                     ok, res = decrease_quantity(sel_id, val)
@@ -50,7 +49,9 @@ def show_operations(dev_mode):
 
         # 逻辑变量
         catalog_exists, is_locked, target_barcode = False, False, user_input
-        defaults = {k: "" for k in ["name", "manuf", "spec", "form", "unit", "ind", "use", "adv", "contra", "prec", "preg", "child", "old"]}
+        
+        # ⚠️ 修复点：这里必须包含 "tags"，否则会报 KeyError
+        defaults = {k: "" for k in ["name", "manuf", "spec", "form", "unit", "tags", "ind", "use", "adv", "contra", "prec", "preg", "child", "old"]}
         defaults.update({"form": "胶囊", "unit": "粒"})
 
         if user_input:
@@ -61,9 +62,13 @@ def show_operations(dev_mode):
                 is_locked = (found.get('is_standard') == 1 and not dev_mode)
                 if is_locked: st.toast(f"🔒 官方数据: {found['name']}")
                 else: st.toast(f"✅ 已调取: {found['name']}")
+                
+                # 回填数据
                 defaults.update({
                     "name": found['name'], "manuf": found['manufacturer'], "spec": found['spec'],
-                    "form": found['form'], "unit": found['unit'], "ind": found['indications'],
+                    "form": found['form'], "unit": found['unit'], 
+                    "tags": found.get('tags', ''), # 🆕 回填标签
+                    "ind": found['indications'],
                     "use": found['std_usage'], "adv": found['adverse_reactions'], 
                     "contra": found['contraindications'], "prec": found['precautions'],
                     "preg": found['pregnancy_lactation_use'], "child": found['child_use'],
@@ -83,13 +88,19 @@ def show_operations(dev_mode):
                     manuf = c2.text_input("厂商", defaults['manuf'], disabled=is_locked)
                     spec = c3.text_input("规格", defaults['spec'], disabled=is_locked)
                     
-                    c4, c5 = st.columns(2)
+                    # 👇 修改第二行布局，增加 Tags
+                    c4, c5, c6 = st.columns([1, 1, 2])
+                    
                     forms = ["胶囊", "片剂", "颗粒", "口服液", "外用", "喷雾", "其他"]
                     units = ["粒", "片", "袋", "ml", "瓶", "盒", "支"]
                     f_idx = forms.index(defaults['form']) if defaults['form'] in forms else 0
                     u_idx = units.index(defaults['unit']) if defaults['unit'] in units else 0
+                    
                     form = c4.selectbox("剂型", forms, index=f_idx, disabled=is_locked)
                     unit = c5.selectbox("单位", units, index=u_idx, disabled=is_locked)
+                    
+                    # 🆕 新增：标签输入框
+                    tags = c6.text_input("🏷️ 标签 (空格分隔)", value=defaults['tags'], placeholder="如: 感冒 发烧 消炎", disabled=is_locked)
                     
                     ind = st.text_area("适应症 *", defaults['ind'], height=70, disabled=is_locked)
                     use = st.text_input("用法", defaults['use'], disabled=is_locked)
@@ -109,7 +120,8 @@ def show_operations(dev_mode):
                         if st.form_submit_button(lbl):
                             if not name: st.error("缺通用名")
                             else:
-                                upsert_catalog_item(target_barcode, name, manuf, spec, form, unit, ind, use, adv, contra, prec, preg, child, old, 1 if dev_mode else 0)
+                                # 👇 必须传入 tags 参数
+                                upsert_catalog_item(target_barcode, name, manuf, spec, form, unit, tags, ind, use, adv, contra, prec, preg, child, old, 1 if dev_mode else 0)
                                 st.success("保存成功"); st.rerun()
                     else:
                         st.form_submit_button("🔒 只读", disabled=True)
@@ -121,7 +133,6 @@ def show_operations(dev_mode):
                     qty = i1.number_input("数量", 1.0)
                     exp = i2.date_input("过期日期")
                     i3, i4 = st.columns(2)
-                    # own = i3.selectbox("归属", ["公用", "爸爸", "妈妈", "宝宝", "老人"])
                     own = i3.selectbox("归属", get_all_members())
                     note = i4.text_input("备注")
                     if st.form_submit_button("📥 入库"):

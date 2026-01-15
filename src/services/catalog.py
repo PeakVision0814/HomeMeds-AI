@@ -2,6 +2,9 @@ import pandas as pd
 from src.database import get_connection
 
 def get_catalog_info(query):
+    """
+    智能查询公共药品库
+    """
     conn = get_connection()
     try:
         sql = """
@@ -15,7 +18,8 @@ def get_catalog_info(query):
     finally:
         conn.close()
 
-def upsert_catalog_item(barcode, name, manufacturer, spec, form, unit, 
+# 👇 核心修改：增加了 tags 参数
+def upsert_catalog_item(barcode, name, manufacturer, spec, form, unit, tags, 
                        indications, std_usage, adverse_reactions, 
                        contraindications, precautions, 
                        pregnancy_lactation_use, child_use, elderly_use,
@@ -23,22 +27,26 @@ def upsert_catalog_item(barcode, name, manufacturer, spec, form, unit,
     conn = get_connection()
     cursor = conn.cursor()
     try:
+        # 插入或更新 tags
         sql = """
         INSERT INTO medicine_catalog (
-            barcode, name, manufacturer, spec, form, unit, indications, std_usage, 
-            adverse_reactions, contraindications, precautions, pregnancy_lactation_use, child_use, elderly_use, is_standard
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            barcode, name, manufacturer, spec, form, unit, tags, 
+            indications, std_usage, 
+            adverse_reactions, contraindications, precautions, 
+            pregnancy_lactation_use, child_use, elderly_use, is_standard
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(barcode) DO UPDATE SET
             name=excluded.name, manufacturer=excluded.manufacturer, spec=excluded.spec,
-            form=excluded.form, unit=excluded.unit, indications=excluded.indications,
-            std_usage=excluded.std_usage, adverse_reactions=excluded.adverse_reactions,
-            contraindications=excluded.contraindications, precautions=excluded.precautions,
-            pregnancy_lactation_use=excluded.pregnancy_lactation_use, child_use=excluded.child_use,
-            elderly_use=excluded.elderly_use, is_standard=excluded.is_standard;
+            form=excluded.form, unit=excluded.unit, tags=excluded.tags,
+            indications=excluded.indications, std_usage=excluded.std_usage, 
+            adverse_reactions=excluded.adverse_reactions, contraindications=excluded.contraindications, 
+            precautions=excluded.precautions, pregnancy_lactation_use=excluded.pregnancy_lactation_use, 
+            child_use=excluded.child_use, elderly_use=excluded.elderly_use, is_standard=excluded.is_standard;
         """
         cursor.execute(sql, (
-            barcode, name, manufacturer, spec, form, unit, indications, std_usage, 
-            adverse_reactions, contraindications, precautions, pregnancy_lactation_use, child_use, elderly_use, is_standard
+            barcode, name, manufacturer, spec, form, unit, tags,
+            indications, std_usage, adverse_reactions, contraindications, precautions, 
+            pregnancy_lactation_use, child_use, elderly_use, is_standard
         ))
         conn.commit()
         return True
@@ -48,14 +56,11 @@ def upsert_catalog_item(barcode, name, manufacturer, spec, form, unit,
     finally:
         conn.close()
 
-# 👇 新增删除函数
 def delete_catalog_item(barcode):
     """删除公共药品库条目"""
     conn = get_connection()
     cursor = conn.cursor()
     try:
-        # 注意：如果有库存引用了这个条码，SQLite 的外键约束可能会阻止删除
-        # 或者需要先删除库存。这里我们简单处理，直接尝试删除。
         cursor.execute("DELETE FROM medicine_catalog WHERE barcode = ?", (barcode,))
         conn.commit()
         return True

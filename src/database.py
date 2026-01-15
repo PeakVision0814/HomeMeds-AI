@@ -31,9 +31,9 @@ def init_db():
     cursor = conn.cursor()
 
     try:
-        print("🏗️ 正在检查数据库表结构 (v0.5)...")
+        print("🏗️ 正在检查数据库表结构 (v0.8 Tags)...")
 
-        # 表1: Catalog (基础库) - 增加 is_standard 字段
+        # 表1: Catalog (基础库) - 包含 tags 字段
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS medicine_catalog (
             barcode TEXT PRIMARY KEY,
@@ -42,6 +42,7 @@ def init_db():
             spec TEXT,
             form TEXT,
             unit TEXT,
+            tags TEXT,                      -- 🆕 v0.8 新增：标签 (如：感冒,消炎)
             indications TEXT,
             std_usage TEXT,
             adverse_reactions TEXT,
@@ -55,7 +56,7 @@ def init_db():
         );
         """)
 
-        # 表2: Inventory (库存库)
+        # 表2: Inventory (库存库) - 无 location
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS inventory (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -70,19 +71,19 @@ def init_db():
         );
         """)
 
-        # 👇👇👇 新增：表3 Family Members (家庭成员表) 👇👇👇
+        # 表3: Family Members (家庭成员表) - v0.7 新增
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS family_members (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL UNIQUE,  -- 名字不能重复
-            is_default BOOLEAN DEFAULT 0 -- 标记是否为系统默认(可选)
+            name TEXT NOT NULL UNIQUE,
+            is_default BOOLEAN DEFAULT 0
         );
         """)
 
         conn.commit()
         print(f"✅ 数据库结构就绪。")
-
-        # 👇👇👇 初始化默认家庭成员 (如果表是空的) 👇👇👇
+        
+        # 初始化默认家庭成员 (如果表是空的)
         cursor.execute("SELECT count(*) FROM family_members")
         if cursor.fetchone()[0] == 0:
             print("初始化默认家庭成员...")
@@ -109,6 +110,7 @@ def reset_db():
     try:
         cursor.execute("DROP TABLE IF EXISTS inventory;")
         cursor.execute("DROP TABLE IF EXISTS medicine_catalog;")
+        cursor.execute("DROP TABLE IF EXISTS family_members;")
         conn.commit()
         print("💥 旧表已清除。")
         conn.close()
@@ -128,6 +130,7 @@ def export_seed_data():
     conn = get_connection()
     try:
         # 只导出 is_standard = 1 的数据
+        # 这里的 SELECT * 会自动把 tags 字段也读出来，dict(row) 也会自动包含 tags
         rows = conn.execute("SELECT * FROM medicine_catalog WHERE is_standard = 1").fetchall()
         data = [dict(row) for row in rows]
         
@@ -158,20 +161,22 @@ def import_seed_data(conn):
         cursor = conn.cursor()
         
         # 使用 INSERT OR REPLACE 确保官方数据覆盖用户的同名数据
+        # ⚠️ 注意：这里必须显式包含 tags 字段，否则新 json 里的 tags 存不进去
         sql = """
         INSERT OR REPLACE INTO medicine_catalog (
-            barcode, name, manufacturer, spec, form, unit, 
+            barcode, name, manufacturer, spec, form, unit, tags, 
             indications, std_usage, adverse_reactions, 
             contraindications, precautions, 
             pregnancy_lactation_use, child_use, elderly_use,
             is_standard
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
         """
         
         for item in data:
             cursor.execute(sql, (
                 item.get('barcode'), item.get('name'), item.get('manufacturer'), 
                 item.get('spec'), item.get('form'), item.get('unit'),
+                item.get('tags', ''),  # 🆕 获取 tags，默认空字符串
                 item.get('indications'), item.get('std_usage'), 
                 item.get('adverse_reactions'), item.get('contraindications'), 
                 item.get('precautions'), item.get('pregnancy_lactation_use'), 
