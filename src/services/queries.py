@@ -6,11 +6,14 @@ from src.database import get_connection
 def load_data():
     conn = get_connection()
     try:
+        # 👇 修改 SQL：增加了 c.tags
         sql = """
         SELECT 
-            i.id, i.barcode, c.name, c.manufacturer, c.spec, c.form, c.unit,
-            i.quantity_val, i.expiry_date, i.owner, c.indications, c.child_use, 
-            c.contraindications, c.is_standard, i.my_dosage
+            i.id, i.barcode,
+            c.name, c.manufacturer, c.spec, c.form, c.unit, c.tags, 
+            i.quantity_val, i.expiry_date, i.owner,
+            c.indications, c.child_use, c.contraindications, c.is_standard,
+            i.my_dosage
         FROM inventory i
         LEFT JOIN medicine_catalog c ON i.barcode = c.barcode
         ORDER BY i.expiry_date ASC
