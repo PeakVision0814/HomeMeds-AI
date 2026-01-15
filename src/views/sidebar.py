@@ -6,34 +6,65 @@ from src.services.members import get_all_members, add_member, delete_member
 def show_sidebar():
     with st.sidebar:
         st.title("🏥 家庭药箱助手 Pro")
-        st.caption("v0.7")
+        st.caption("v0.7 成员自定义版")
         
         menu = st.radio("导航", ["🏠 药箱看板", "💊 药品操作", "📖 公共药库", "🤖 AI 药剂师"])
         st.divider()
-
-        # === 👇 新增：家庭成员管理区域 👇 ===
+        
+        # === 👨‍👩‍👧‍👦 家庭成员管理 (优化版) ===
         with st.expander("👨‍👩‍👧‍👦 家庭成员管理"):
+            # 获取最新列表
             current_members = get_all_members()
             
-            # 1. 展示标签
-            st.caption("当前成员：")
-            st.markdown(" ".join([f"`{m}`" for m in current_members]))
+            # 1. 展示列表
+            st.caption("当前成员列表：")
+            if current_members:
+                # 使用 pills 或 markdown code 样式，紧凑展示
+                st.markdown(" ".join([f"`{m}`" for m in current_members]))
+            else:
+                st.caption("暂无成员")
             
-            # 2. 添加
-            c1, c2 = st.columns([2, 1])
-            new_name = c1.text_input("新名字", placeholder="如: 爷爷", label_visibility="collapsed")
-            if c2.button("➕添加"):
-                ok, msg = add_member(new_name)
-                if ok: st.success(msg); st.rerun()
-                else: st.error(msg)
+            # 🗑️ 去掉了 st.divider()，减少间距
+            st.write("") # 仅添加一个微小的空行
+
+            # 2. 添加成员 (带自动清空逻辑)
+            st.caption("➕ 添加新成员")
             
-            # 3. 删除
-            st.caption("删除成员：")
-            del_name = st.selectbox("选择删除", [""] + current_members, label_visibility="collapsed")
-            if del_name and st.button("🗑️ 确认删除"):
-                delete_member(del_name)
-                st.success(f"已删除 {del_name}")
-                st.rerun()
+            # 定义回调函数：处理添加 + 清空
+            def on_add_click():
+                # 从 session_state 获取输入框的值
+                new_name = st.session_state.get("add_mem_input", "").strip()
+                if new_name:
+                    ok, msg = add_member(new_name)
+                    if ok:
+                        st.toast(f"✅ {msg}") # 使用 toast 提示，不打断流程
+                        st.session_state["add_mem_input"] = "" # 🧹 关键：清空输入框绑定的变量
+                    else:
+                        st.toast(f"❌ {msg}")
+                else:
+                    st.toast("❌ 名字不能为空")
+
+            # 输入框绑定 key
+            st.text_input("新名字", placeholder="输入名字 (如: 爷爷)", label_visibility="collapsed", key="add_mem_input")
+            
+            # 按钮绑定 on_click 回调
+            st.button("确认添加", type="secondary", use_container_width=True, on_click=on_add_click)
+            
+            st.write("") # 微小空行
+
+            # 3. 删除成员
+            st.caption("🗑️ 删除成员")
+            
+            # 定义删除回调
+            def on_del_click():
+                name_to_del = st.session_state.get("del_mem_select")
+                if name_to_del and name_to_del != "请选择...":
+                    delete_member(name_to_del)
+                    st.toast(f"✅ 已删除成员: {name_to_del}")
+            
+            st.selectbox("选择要删除的成员", ["请选择..."] + current_members, label_visibility="collapsed", key="del_mem_select")
+            
+            st.button("执行删除", type="primary", use_container_width=True, on_click=on_del_click)
         
         st.divider()
         
