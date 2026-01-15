@@ -3,6 +3,7 @@ import streamlit as st
 from src.services.queries import load_data
 from src.services.inventory import update_quantity, delete_medicine, decrease_quantity, add_inventory_item
 from src.services.catalog import get_catalog_info, upsert_catalog_item
+from src.services.members import get_all_members
 
 def show_operations(dev_mode):
     st.header("💊 药品管理")
@@ -120,7 +121,8 @@ def show_operations(dev_mode):
                     qty = i1.number_input("数量", 1.0)
                     exp = i2.date_input("过期日期")
                     i3, i4 = st.columns(2)
-                    own = i3.selectbox("归属", ["公用", "爸爸", "妈妈", "宝宝", "老人"])
+                    # own = i3.selectbox("归属", ["公用", "爸爸", "妈妈", "宝宝", "老人"])
+                    own = i3.selectbox("归属", get_all_members())
                     note = i4.text_input("备注")
                     if st.form_submit_button("📥 入库"):
                         add_inventory_item(target_barcode, exp, qty, own, note)

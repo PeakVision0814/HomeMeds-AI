@@ -2,6 +2,7 @@
 import streamlit as st
 import pandas as pd
 from src.services.queries import load_data, get_dashboard_metrics
+from src.services.members import get_all_members
 
 def show_dashboard():
     st.header("📊 药箱实时看板")
@@ -15,7 +16,9 @@ def show_dashboard():
     
     col_s, col_f = st.columns([3, 1])
     search = col_s.text_input("🔍 搜索库存", placeholder="药名/适应症...")
-    owner = col_f.selectbox("归属人", ["全部", "公用", "爸爸", "妈妈", "宝宝", "老人"])
+    # 👇 修改这里：获取动态成员列表，并加上 "全部"
+    members_list = ["全部"] + get_all_members()
+    owner = col_f.selectbox("归属人", members_list)
     
     df = load_data()
     if not df.empty:

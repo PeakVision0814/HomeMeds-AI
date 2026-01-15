@@ -70,8 +70,25 @@ def init_db():
         );
         """)
 
+        # 👇👇👇 新增：表3 Family Members (家庭成员表) 👇👇👇
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS family_members (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,  -- 名字不能重复
+            is_default BOOLEAN DEFAULT 0 -- 标记是否为系统默认(可选)
+        );
+        """)
+
         conn.commit()
         print(f"✅ 数据库结构就绪。")
+
+        # 👇👇👇 初始化默认家庭成员 (如果表是空的) 👇👇👇
+        cursor.execute("SELECT count(*) FROM family_members")
+        if cursor.fetchone()[0] == 0:
+            print("初始化默认家庭成员...")
+            defaults = [("公用",), ("爸爸",), ("妈妈",), ("宝宝",), ("老人",)]
+            cursor.executemany("INSERT OR IGNORE INTO family_members (name) VALUES (?)", defaults)
+            conn.commit()
         
         # 尝试加载种子数据
         import_seed_data(conn)
