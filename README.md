@@ -14,6 +14,7 @@ The app also includes an AI pharmacist assistant that can use your current inven
 - Record medicine usage and automatically deduct stock.
 - Correct total remaining stock during inventory checks.
 - Highlight expired medicines and show near-expiry warnings.
+- Use the dashboard reminder panel and expiry filters to focus on expired or soon-to-expire stock.
 
 ### Catalog And Data Separation
 

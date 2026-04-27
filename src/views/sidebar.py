@@ -6,7 +6,7 @@ from src.services.members import get_all_members, add_member, delete_member
 def show_sidebar():
     with st.sidebar:
         st.title("🏥 家庭药箱助手 Pro")
-        st.caption("v0.7 成员自定义版")
+        st.caption("v0.9 站内过期提醒")
         
         menu = st.radio("导航", ["🏠 药箱看板", "💊 药品操作", "📖 公共药库", "🤖 AI 药剂师"])
         st.divider()

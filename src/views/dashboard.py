@@ -2,8 +2,12 @@
 
 import streamlit as st
 import pandas as pd
-from datetime import date, timedelta
-from src.services.queries import load_data, get_dashboard_metrics
+from src.services.queries import (
+    filter_by_expiry_status,
+    get_dashboard_metrics,
+    get_expiry_alerts,
+    load_data,
+)
 from src.services.members import get_all_members
 
 # === 0. CSS 样式 (复用并微调) ===
@@ -56,6 +60,36 @@ def render_tags_html(tags_str):
     for t in tags:
         html += f'<span class="med-tag">{t}</span>'
     return html
+
+
+def format_expiry_status(days_left):
+    if days_left < 0:
+        return "🔴", f"已过期 {abs(days_left)}天", "#ef4444"
+    if days_left <= 90:
+        return "🟡", f"剩 {days_left}天", "#f59e0b"
+    return "🟢", "正常", "#10b981"
+
+
+def render_expiry_alerts():
+    alerts = get_expiry_alerts()
+    if alerts.empty:
+        st.success("✅ 当前没有过期或临期药品。")
+        return
+
+    expired_count = len(alerts[alerts["expiry_status"] == "expired"])
+    expiring_count = len(alerts[alerts["expiry_status"] == "expiring"])
+    if expired_count:
+        st.error(f"🔴 有 {expired_count} 个库存条目已经过期，请优先处理。")
+    if expiring_count:
+        st.warning(f"🟡 有 {expiring_count} 个库存条目将在 90 天内过期。")
+
+    with st.expander("查看需处理药品", expanded=True):
+        for _, row in alerts.iterrows():
+            icon, status_text, _ = format_expiry_status(int(row["days_until_expiry"]))
+            st.markdown(
+                f"- {icon} **{row['name']}** · {row['quantity_display']} · "
+                f"{row['owner']} · {status_text} · {row['expiry_date'].strftime('%Y-%m-%d')}"
+            )
 
 # === 1. 详情弹窗 ===
 @st.dialog("📦 库存详情档案", width="large")
@@ -119,12 +153,22 @@ def show_dashboard():
     m3.metric("🔴 已过期", expired, delta_color="inverse")
     
     st.divider()
+    render_expiry_alerts()
+    st.divider()
     
     # 筛选区
-    col_s, col_f = st.columns([3, 1])
+    col_s, col_f, col_status = st.columns([3, 1, 1])
     search = col_s.text_input("🔍 搜索库存", placeholder="药名/适应症/标签...")
     members_list = ["全部"] + get_all_members()
     owner_filter = col_f.selectbox("归属人筛选", members_list)
+    status_options = {
+        "全部": "all",
+        "需处理": "attention",
+        "已过期": "expired",
+        "临期": "expiring",
+        "正常": "normal",
+    }
+    status_label = col_status.selectbox("效期筛选", list(status_options.keys()))
     
     # 加载数据
     df = load_data()
@@ -140,38 +184,20 @@ def show_dashboard():
         df = df[mask]
     if owner_filter != "全部":
         df = df[df['owner'] == owner_filter]
+    df = filter_by_expiry_status(df, status_options[status_label])
 
     st.caption(f"当前展示 {len(df)} 个库存条目")
+    if df.empty:
+        st.info("没有符合当前筛选条件的库存条目。")
+        return
 
     # === 卡片网格 ===
-    today = pd.to_datetime("today").normalize()
-    
     COLS_PER_ROW = 4
     cols = st.columns(COLS_PER_ROW)
 
     for index, row in df.iterrows():
         col_idx = index % COLS_PER_ROW
-        
-        # 计算过期逻辑
-        exp_date = pd.to_datetime(row['expiry_date'])
-        days_left = (exp_date - today).days
-        
-        # 状态视觉配置
-        if days_left < 0:
-            status_icon = "🔴"
-            status_text = f"已过期 {abs(days_left)}天"
-            status_color = "#ef4444" # 红
-            bg_color = "#fef2f2" # 极淡红背景提示
-        elif days_left <= 90:
-            status_icon = "🟡"
-            status_text = f"剩 {days_left}天"
-            status_color = "#f59e0b" # 黄
-            bg_color = "#fffbeb"
-        else:
-            status_icon = "🟢"
-            status_text = "正常"
-            status_color = "#10b981" # 绿
-            bg_color = "#ffffff"
+        status_icon, status_text, status_color = format_expiry_status(int(row["days_until_expiry"]))
 
         with cols[col_idx]:
             with st.container(border=True):
