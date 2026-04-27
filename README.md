@@ -97,6 +97,8 @@ streamlit run app.py
 - API keys are entered through the app sidebar or local environment.
 - Do not commit OpenAI, DeepSeek, or other provider keys.
 - Keep local SQLite inventory data private and out of version control.
+- Set `HOMEMEDS_DB_PATH` to use a custom SQLite database path.
+- Set `HOMEMEDS_SEED_FILE` to import or export seed data from a custom JSON file.
 
 ## Development Notes
 
@@ -105,7 +107,13 @@ streamlit run app.py
 - Use `src/database.py` for schema initialization, migration, and seed import/export behavior.
 - Match the existing Python style: 4-space indentation, `snake_case`, and imports from `src...`.
 
-There is no committed automated test suite yet. For now, verify changes by running:
+Run automated tests with:
+
+```powershell
+pytest
+```
+
+For manual verification, run:
 
 ```powershell
 python src/database.py

@@ -1,13 +1,21 @@
 # src/services/inventory.py
 import sqlite3
+from datetime import date
 from src.database import get_connection
+
+
+def normalize_date(value):
+    if isinstance(value, date):
+        return value.isoformat()
+    return value
+
 
 def add_inventory_item(barcode, expiry_date, quantity_val, owner, my_dosage):
     conn = get_connection()
     cursor = conn.cursor()
     try:
         sql = "INSERT INTO inventory (barcode, expiry_date, quantity_val, owner, my_dosage) VALUES (?, ?, ?, ?, ?)"
-        cursor.execute(sql, (barcode, expiry_date, quantity_val, owner, my_dosage))
+        cursor.execute(sql, (barcode, normalize_date(expiry_date), quantity_val, owner, my_dosage))
         conn.commit()
         return True
     except sqlite3.IntegrityError:

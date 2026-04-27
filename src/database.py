@@ -7,15 +7,46 @@ import json
 # --- 1. 路径配置 ---
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(CURRENT_DIR)
-DATA_DIR = os.path.join(PROJECT_ROOT, "data")
-DB_PATH = os.path.join(DATA_DIR, "medicines.db")
-SEED_FILE = os.path.join(DATA_DIR, "catalog_seed.json")
+DEFAULT_DATA_DIR = os.path.join(PROJECT_ROOT, "data")
+DATA_DIR = os.environ.get("HOMEMEDS_DATA_DIR", DEFAULT_DATA_DIR)
+DB_PATH = os.environ.get("HOMEMEDS_DB_PATH", os.path.join(DATA_DIR, "medicines.db"))
+SEED_FILE = os.environ.get("HOMEMEDS_SEED_FILE", os.path.join(DATA_DIR, "catalog_seed.json"))
+
+
+def configure_utf8_output():
+    """Keep emoji/Chinese console output working on Windows terminals."""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8")
+            except Exception:
+                pass
+
+
+configure_utf8_output()
+
+
+def get_data_dir():
+    return os.environ.get("HOMEMEDS_DATA_DIR", DEFAULT_DATA_DIR)
+
+
+def get_db_path():
+    return os.environ.get("HOMEMEDS_DB_PATH", os.path.join(get_data_dir(), "medicines.db"))
+
+
+def get_seed_file():
+    return os.environ.get("HOMEMEDS_SEED_FILE", os.path.join(get_data_dir(), "catalog_seed.json"))
 
 # --- 2. 基础连接 ---
 
 def get_connection():
     """获取数据库连接"""
-    conn = sqlite3.connect(DB_PATH)
+    db_path = get_db_path()
+    db_dir = os.path.dirname(db_path)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
+
+    conn = sqlite3.connect(db_path)
     conn.execute("PRAGMA foreign_keys = ON;")
     conn.row_factory = sqlite3.Row
     return conn
@@ -24,8 +55,7 @@ def get_connection():
 
 def init_db():
     """初始化数据库表结构，并自动加载种子数据"""
-    if not os.path.exists(DATA_DIR):
-        os.makedirs(DATA_DIR)
+    os.makedirs(get_data_dir(), exist_ok=True)
 
     conn = get_connection()
     cursor = conn.cursor()
@@ -101,7 +131,7 @@ def init_db():
 
 def reset_db():
     """暴力重置：删表 -> 建表 -> 自动导回数据"""
-    print(f"🔧 正在连接数据库: {DB_PATH}")
+    print(f"🔧 正在连接数据库: {get_db_path()}")
     if input("⚠️ 警告：这将清空所有库存！但会保留 JSON 中的公共库。确认？(y/n): ").lower() != 'y':
         return
 
@@ -134,10 +164,15 @@ def export_seed_data():
         rows = conn.execute("SELECT * FROM medicine_catalog WHERE is_standard = 1").fetchall()
         data = [dict(row) for row in rows]
         
-        with open(SEED_FILE, 'w', encoding='utf-8') as f:
+        seed_file = get_seed_file()
+        seed_dir = os.path.dirname(seed_file)
+        if seed_dir:
+            os.makedirs(seed_dir, exist_ok=True)
+
+        with open(seed_file, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
             
-        print(f"💾 已导出 {len(data)} 条【官方标准数据】到: {SEED_FILE}")
+        print(f"💾 已导出 {len(data)} 条【官方标准数据】到: {seed_file}")
         return len(data)
     except Exception as e:
         print(f"❌ 导出失败: {e}")
@@ -150,11 +185,12 @@ def import_seed_data(conn):
     [自动调用] 从 JSON 文件加载数据
     强制策略：JSON 里的数据就是权威数据，强制覆盖本地，并标记为 is_standard=1
     """
-    if not os.path.exists(SEED_FILE):
+    seed_file = get_seed_file()
+    if not os.path.exists(seed_file):
         return
 
     try:
-        with open(SEED_FILE, 'r', encoding='utf-8') as f:
+        with open(seed_file, 'r', encoding='utf-8') as f:
             data = json.load(f)
             
         print(f"🌱 正在加载 {len(data)} 条官方种子数据...")

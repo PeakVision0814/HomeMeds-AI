@@ -5,6 +5,10 @@ venv/
 # 忽略 Python 编译缓存
 __pycache__/
 *.py[cod]
+.pytest_cache/
+.pytest_tmp/
+tests/.tmp_data/
+pytest-cache-files-*/
 
 # 忽略本地数据库文件 (保护隐私数据)
 *.db

@@ -34,7 +34,7 @@ Use standard Python style with 4-space indentation, `snake_case` for functions a
 
 ## Testing Guidelines
 
-There is no committed test suite yet. For logic changes, add focused tests under a new `tests/` directory using `pytest`, with files named `test_<module>.py`. Until automated tests exist, run `python src/database.py` and `streamlit run app.py`, then manually verify the affected dashboard, operations, catalog, or AI page workflow. For database changes, test both a fresh database and an existing database migration path.
+Run `pytest` for automated coverage. For UI changes, also run `python src/database.py` and `streamlit run app.py`, then manually verify the affected dashboard, operations, catalog, or AI page workflow. For database changes, test both a fresh database and an existing database migration path. Use `HOMEMEDS_DB_PATH` and `HOMEMEDS_SEED_FILE` when a test or manual check needs isolated data files.
 
 ## Commit & Pull Request Guidelines
 

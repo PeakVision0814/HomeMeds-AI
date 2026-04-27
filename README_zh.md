@@ -2,7 +2,7 @@
 
 **HomeMeds Pro** 是一个基于 **Streamlit** 构建的现代化家庭药品库存管理系统。它不仅能帮你记录家里的药还剩多少、有没有过期，更引入了 **"官方/用户数据隔离"** 机制，确保药品信息的准确性与安全性。同时，内置的 **AI 药剂师**（支持 DeepSeek/OpenAI）能基于你的库存提供智能用药建议。
 
-> **当前版本**: v0.6 (模块化重构版)
+> **当前版本**: v0.8.1 (恢复开发基线版)
 
 ## ✨ 核心功能
 
@@ -130,10 +130,29 @@ streamlit run app.py
 ## ⚙️ 配置说明
 
 * **API Key**: 在侧边栏“AI 设置”中填入。支持兼容 OpenAI 格式的 Key（推荐使用 DeepSeek）。
+* **自定义数据库路径**: 设置环境变量 `HOMEMEDS_DB_PATH` 可指定 SQLite 数据库位置。
+* **自定义种子文件路径**: 设置环境变量 `HOMEMEDS_SEED_FILE` 可指定导入/导出的 JSON 种子文件。
 * **依赖库**:
 * `streamlit`: Web 框架
 * `pandas`: 数据处理
 * `openai`: 调用 LLM
+
+---
+
+## 🧪 开发验证
+
+运行自动化测试：
+
+```bash
+pytest
+```
+
+手动验证核心流程：
+
+```bash
+python src/database.py
+streamlit run app.py
+```
 
 
 
