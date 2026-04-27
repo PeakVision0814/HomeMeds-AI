@@ -1,152 +1,119 @@
-# 💊 HomeMeds Pro (家庭药箱助手)
+# HomeMeds Pro
 
-**HomeMeds Pro** 是一个基于 **Streamlit** 构建的现代化家庭药品库存管理系统。它不仅能帮你记录家里的药还剩多少、有没有过期，更引入了 **"官方/用户数据隔离"** 机制，确保药品信息的准确性与安全性。同时，内置的 **AI 药剂师**（支持 DeepSeek/OpenAI）能基于你的库存提供智能用药建议。
+HomeMeds Pro is a Streamlit-based household medicine inventory manager. It helps you track what medicines you have at home, where they are stored, how much is left, and whether anything is near expiry or already expired.
 
-> **当前版本**: v0.6 (模块化重构版)
+The app also includes an AI pharmacist assistant that can use your current inventory as context and provide medication-related guidance through DeepSeek or OpenAI-compatible models.
 
-## ✨ 核心功能
+> Chinese documentation is available in [README_zh.md](README_zh.md).
 
-### 1. 🏥 智能库存管理
+## Features
 
-* **双模式操作**：
-    * **🥣 吃药打卡**：记录单次用量（如“吃2粒”），自动扣减库存。
-    * **📝 库存盘点**：直接修正剩余总量（如“还剩半瓶”），支持药膏/液体的模糊计量。
+### Inventory Management
 
+- Track household medicines, quantities, expiry dates, storage locations, and ownership.
+- Record medicine usage and automatically deduct stock.
+- Correct total remaining stock during inventory checks.
+- Highlight expired medicines and show near-expiry warnings.
 
-* **全景看板**：实时展示总库存、临期预警（90天内）及过期药品统计，过期药品高亮标红。
+### Catalog And Data Separation
 
-### 2. 🔍 极速入库流程
+- Maintain a shared standard medicine catalog through `data/catalog_seed.json`.
+- Keep official catalog data separate from user-entered inventory records.
+- Protect standard entries from accidental edits during normal use.
+- Export updated seed data when maintaining the shared catalog.
 
-* **多维搜索**：支持 **扫码录入** 或 **药名模糊搜索**（如输入“感冒”自动匹配条码）。
-* **专业字段**：收录 14 项核心信息，包括**适应症、禁忌、不良反应、孕妇/儿童/老年人特殊用药指南**。
-* **位置管理**：记录药品存放位置（电视柜、冰箱等）及归属人。
+### Fast Medicine Entry
 
-### 3. 🛡️ 官方/用户数据隔离 (独家特性)
+- Search by barcode or medicine name.
+- Add new medicine records when no catalog match exists.
+- Store professional fields such as indications, contraindications, adverse reactions, and special-use notes.
 
-* **权威优先**：引入 `is_standard` 机制。
-* **官方数据**（🔒）：由维护者录入，包含完整的安全信息，普通用户只读，防止误改。
-* **用户数据**（✏️）：用户可自由录入偏方或新药，灵活管理。
+### AI Pharmacist Assistant
 
+- Supports DeepSeek and OpenAI-compatible APIs through the `openai` client.
+- Reads the current inventory as context for more relevant answers.
+- Uses safety fields such as contraindications and pediatric-use notes when available.
 
-* **种子同步**：支持将官方数据导出为 JSON 种子文件，通过 Git 分发，实现“一人维护，全员受益”。
-
-### 4. 🤖 AI 私人药剂师 (RAG)
-
-* 基于 **DeepSeek-V3** 或 **OpenAI** 大模型。
-* **上下文感知**：AI 能够读取你当前的库存清单。
-* **安全护栏**：严格检查药品说明书中的【禁忌】与【儿童用药】字段，提供安全的用药建议。
-
----
-
-## 🛠️ 技术架构 (v0.6)
-
-本项目采用 **MVC 模式** 进行模块化重构，结构清晰，易于扩展。
+## Project Structure
 
 ```text
 HomeMeds/
-├── data/
-│   ├── medicines.db          # SQLite 数据库 (本地存储，含库存)
-│   └── catalog_seed.json     # 官方药品种子库 (JSON，Git版本控制)
-├── src/
-│   ├── database.py           # 数据库初始化、种子导入导出逻辑
-│   ├── services/             # [业务逻辑层]
-│   │   ├── catalog.py        # 公共药库增删改查
-│   │   ├── inventory.py      # 库存操作核心
-│   │   ├── queries.py        # 数据统计与联表查询
-│   │   └── ai_service.py     # AI 上下文构建
-│   └── views/                # [界面展示层]
-│       ├── sidebar.py        # 侧边栏与全局设置
-│       ├── dashboard.py      # 看板页面
-│       ├── operations.py     # 核心操作页面
-│       └── ai_doctor.py      # AI 聊天页面
-├── app.py                    # 应用主入口
-├── requirements.txt          # 依赖列表
-└── README.md                 # 说明文档
-
++-- data/
+|   +-- catalog_seed.json     # Versioned standard medicine seed data
++-- src/
+|   +-- database.py           # SQLite initialization, migration, import/export logic
+|   +-- services/             # Business logic and data access
+|   |   +-- ai_service.py
+|   |   +-- catalog.py
+|   |   +-- inventory.py
+|   |   +-- members.py
+|   |   +-- queries.py
+|   +-- views/                # Streamlit UI pages
+|       +-- ai_doctor.py
+|       +-- catalog.py
+|       +-- dashboard.py
+|       +-- operations.py
+|       +-- sidebar.py
++-- app.py                    # Application entry point
++-- requirements.txt
++-- README.md                 # English documentation
++-- README_zh.md              # Chinese documentation
 ```
 
----
+Local runtime database files such as `data/medicines.db` are intentionally not committed.
 
-## 🚀 快速开始
+## Getting Started
 
-### 1. 环境准备
+### 1. Create A Virtual Environment
 
-确保已安装 Python 3.8+。
-
-```bash
-# 克隆项目
-git clone https://github.com/your-username/HomeMeds.git
-cd HomeMeds
-
-# 创建虚拟环境 (推荐)
+```powershell
 python -m venv .venv
-# Windows 激活:
-.venv\Scripts\activate
-# Mac/Linux 激活:
-source .venv/bin/activate
-
-# 安装依赖
+.\.venv\Scripts\activate
 pip install -r requirements.txt
-
 ```
 
-### 2. 数据库初始化
+### 2. Initialize The Database
 
-首次运行前，需要初始化数据库并加载种子数据：
-
-```bash
+```powershell
 python src/database.py
-
 ```
 
-> *提示：如果未来版本更新了数据库结构，可运行 `python src/database.py --reset` 进行重置（注意备份库存）。*
+Use the reset option only when you intentionally want to rebuild local data:
 
-### 3. 启动应用
+```powershell
+python src/database.py --reset
+```
 
-```bash
+Back up any important local SQLite data before resetting.
+
+### 3. Run The App
+
+```powershell
 streamlit run app.py
-
 ```
 
----
+## Configuration
 
-## 📖 使用指南
+- API keys are entered through the app sidebar or local environment.
+- Do not commit OpenAI, DeepSeek, or other provider keys.
+- Keep local SQLite inventory data private and out of version control.
 
-### 👨‍👩‍👧‍👦 对于普通用户
+## Development Notes
 
-1. **入库**：在“药品操作”页，输入条码或药名。如果库里有，直接填数量；如果库里没有，手动补全信息。
-2. **吃药**：在“吃药/更新”页，选择药品，输入用量点击“确认服药”。
-3. **问诊**：在“AI 药剂师”页，输入 API Key，描述症状（如“宝宝发烧39度”），AI 会根据库存推荐药物。
+- Keep Streamlit page rendering in `src/views/`.
+- Put reusable business logic in `src/services/`.
+- Use `src/database.py` for schema initialization, migration, and seed import/export behavior.
+- Match the existing Python style: 4-space indentation, `snake_case`, and imports from `src...`.
 
-### 👨‍💻 对于维护者/开发者
+There is no committed automated test suite yet. For now, verify changes by running:
 
-1. 在侧边栏勾选 **"我是维护者/作者"** 开启开发者模式。
-2. 此时你可以编辑带有 🔒 锁标记的官方数据。
-3. 录入或修正完一批标准数据后，点击侧边栏的 **"📤 导出官方种子文件"**。
-4. 将生成的 `data/catalog_seed.json` 提交到 Git，即可分享给所有用户。
+```powershell
+python src/database.py
+streamlit run app.py
+```
 
----
+For database changes, test both a fresh database and an existing database migration path.
 
-## ⚙️ 配置说明
+## License
 
-* **API Key**: 在侧边栏“AI 设置”中填入。支持兼容 OpenAI 格式的 Key（推荐使用 DeepSeek）。
-* **依赖库**:
-* `streamlit`: Web 框架
-* `pandas`: 数据处理
-* `openai`: 调用 LLM
-
-
-
----
-
-## 📝 开发计划
-
-* [ ] 增加药品过期自动邮件/微信提醒功能。
-* [ ] 引入 OCR 功能，支持拍照识别药盒文字自动录入。
-* [ ] 增加多家庭账户支持（云端同步版）。
-
----
-
-## 📄 License
-
-MIT License. 欢迎 Fork 和提交 PR！
+MIT License.
